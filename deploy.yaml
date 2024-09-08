@@ -1,0 +1,41 @@
+---
+- name: Execute script on private EC2 instances via bastion host
+  hosts: all
+  remote_user: ubuntu
+  gather_facts: no
+
+  vars_prompt:
+    - name: bastion_ip
+      prompt: "Enter the Bastion IP address"
+      private: no
+
+    - name: bastion_key
+      prompt: "Enter the path to the bastion host's private key"
+      private: no
+      default: "bastion_key.pem"
+
+    - name: node_key
+      prompt: "Enter the path to the node's private key"
+      private: no
+      default: "node_key.pem"
+
+    - name: ebs_volume_size
+      prompt: "Enter the EBS volume size (in GB)"
+      private: no
+
+  vars:
+    ansible_ssh_common_args: '-o ProxyCommand="ssh -W %h:%p -i {{ bastion_key }} ec2-user@{{ bastion_ip }}"'
+    ansible_ssh_private_key_file: "{{ node_key }}"
+
+  tasks:
+    - name: Run ZFS add script
+      ansible.builtin.expect:
+        command: sudo /home/ubuntu/zfs_add_script.sh
+        responses:
+          'Enter the.*GB.*': '{{ ebs_volume_size }}'
+        timeout: 60
+      register: script_output
+
+    - name: Display script output
+      debug:
+        var: script_output
